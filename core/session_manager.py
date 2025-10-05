@@ -14,47 +14,40 @@ class SessionManager:
 
     def login(self, username: str, password: str) -> (bool, str):
         """
-        Inicia sesión con Playwright (headless), obtiene cookies + csrf.
+        Inicia sesión headless en el TEM, copia las cookies al requests.Session
+        y obtiene el token CSRF necesario para las peticiones REST.
         """
         try:
             with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)  # headless = sin abrir ventana
+                browser = p.chromium.launch(headless=True)
                 page = browser.new_page()
-
                 if self.debug:
                     print("[*] Abriendo login:", LOGIN_URL)
-
-                # 1. Ir al login
                 page.goto(LOGIN_URL)
 
-                # 2. Completar usuario y contraseña (ajusta los selectores según tu HTML)
+                # Ingreso de credenciales
                 page.fill('input[name="username"]', username)
                 page.fill('input[name="password"]', password)
-
-                # 3. Enviar formulario (Enter o click en el botón)
                 page.keyboard.press("Enter")
                 page.wait_for_load_state("networkidle")
 
-                # 4. Exportar cookies del navegador
+                # Guardar cookies
                 cookies = page.context.cookies()
                 browser.close()
 
-            if self.debug:
-                print("[*] Cookies Playwright:", cookies)
-
-            # Pasar cookies a requests.Session
+            # Transferir cookies a requests
             for c in cookies:
                 self.session.cookies.set(c["name"], c["value"], domain=c.get("domain"))
 
-            # 5. Pedir context para obtener el token real
+            # Solicitar el contexto para obtener el token CSRF
             ctx = self.session.get(CONTEXT_URL, headers={"x-csrf-request": "true"})
             ctx.raise_for_status()
             self.csrf_token = ctx.headers.get("x-csrf-token")
 
             if not self.csrf_token:
-                return False, "Login OK pero no se encontró x-csrf-token"
-
+                return False, "Login OK, pero no se encontró token CSRF"
             return True, "Login OK"
+
         except Exception as e:
             return False, f"Error en login con Playwright: {e}"
 
@@ -65,17 +58,8 @@ class SessionManager:
         return self.csrf_token
 
     def auth_headers(self):
-        """Headers listos para API"""
         return {
             "x-csrf-token": self.csrf_token,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/plain, */*"
         }
-
-
-if __name__ == "__main__":
-    sm = SessionManager(debug=True)
-    ok, msg = sm.login("user", "pass")
-    print("Login exitoso:", ok)
-    print("Mensaje:", msg)
-    print("CSRF token:", sm.get_csrf())
-
