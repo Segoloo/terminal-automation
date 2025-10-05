@@ -74,13 +74,7 @@ class SessionManager:
 
 if __name__ == "__main__":
     sm = SessionManager(debug=True)
-    ok, msg = sm.login("tu_usuario", "tu_password")
-    print("Resultado:", ok, msg)
-    print("CSRF:", sm.get_csrf())
-
-if __name__ == "__main__":
-    sm = SessionManager(debug=True)
-    ok, msg = sm.login("tu_usuario", "tu_password")
+    ok, msg = sm.login("user", "pass")
     print("Login exitoso:", ok)
     print("Mensaje:", msg)
     print("CSRF token:", sm.get_csrf())
